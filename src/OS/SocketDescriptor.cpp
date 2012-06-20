@@ -65,6 +65,49 @@ SocketDescriptor::CreateTCP()
 }
 
 bool
+SocketDescriptor::CreateUDP()
+{
+  assert(!IsDefined());
+
+  int fd = socket(AF_INET, SOCK_DGRAM, 0);
+  if (fd < 0)
+    return false;
+
+  Set(fd);
+  return true;
+}
+
+bool
+SocketDescriptor::CreateUDPListener(unsigned port, unsigned backlog)
+{
+  if (!CreateUDP())
+    return false;
+
+  // Set socket options
+  const int reuse = 1;
+#ifdef HAVE_POSIX
+  const void *optval = &reuse;
+#else
+  const char *optval = (const char *)&reuse;
+#endif
+  setsockopt(Get(), SOL_SOCKET, SO_REUSEADDR, optval, sizeof(reuse));
+
+  // Bind socket to specified port number
+  struct sockaddr_in address;
+  memset(&address, 0, sizeof(address));
+  address.sin_family = AF_INET;
+  address.sin_addr.s_addr = INADDR_ANY;
+  address.sin_port = htons((uint16_t)port);
+
+  if (bind(Get(), (const struct sockaddr *)&address, sizeof(address)) < 0) {
+    Close();
+    return false;
+  }
+
+  return true;
+}
+
+bool
 SocketDescriptor::CreateTCPListener(unsigned port, unsigned backlog)
 {
   if (!CreateTCP())

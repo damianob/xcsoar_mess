@@ -26,6 +26,7 @@ Copyright_License {
 #include "Asset.hpp"
 #include "Language/Language.hpp"
 #include "Util/Macros.hpp"
+#include "DeviceConfig.hpp"
 
 #include <stdio.h>
 
@@ -37,8 +38,14 @@ static const TCHAR *const port_type_strings[] = {
   _T("ioio_uart"),
   _T("auto"),
   _T("internal"),
-  _T("tcp_listener"),
+  _T("network"),
   _T("pty"),
+  NULL
+};
+
+static const TCHAR *const network_protocol_strings[] = {
+  _T("TCP"),
+  _T("UDP"),
   NULL
 };
 
@@ -65,7 +72,7 @@ DeviceConfig::IsAvailable() const
   case PortType::INTERNAL:
     return IsAndroid();
 
-  case PortType::TCP_LISTENER:
+  case PortType::NETWORK:
     return true;
 
   case PortType::PTY:
@@ -104,7 +111,7 @@ DeviceConfig::ShouldReopenOnTimeout() const
     /* reopening the Android internal GPS doesn't help */
     return false;
 
-  case PortType::TCP_LISTENER:
+  case PortType::NETWORK:
     /* this is a server, and if no data gets received, this can just
        mean that nobody connected to it, but reopening it periodically
        doesn't help */
@@ -148,9 +155,13 @@ DeviceConfig::GetPortName(TCHAR *buffer, size_t max_size) const
   case PortType::INTERNAL:
     return _("Built-in GPS");
 
-  case PortType::TCP_LISTENER:
-    _sntprintf(buffer, max_size, _T("TCP port %d"), tcp_port);
-    return buffer;
+  case PortType::NETWORK:
+    switch(network_protocol){
+      case NetworkProtocolType::NETWORK_TCP : _sntprintf(buffer, max_size, _T("TCP port %d"), network_port);
+        return buffer;
+      case NetworkProtocolType::NETWORK_UDP : _sntprintf(buffer, max_size, _T("UDP port %d"), network_port);
+        return buffer;
+    }
 
   case PortType::PTY:
     _sntprintf(buffer, max_size, _T("Pseudo-terminal %s"), path.c_str());
@@ -190,6 +201,21 @@ StringToPortType(const TCHAR *value, DeviceConfig::PortType &type)
 }
 
 static bool
+StringToNetworkProtocolType(const TCHAR *value, DeviceConfig::NetworkProtocolType &protocol){
+  int k=0;
+  for (auto i = network_protocol_strings; *i != NULL; ++i, k++) {
+    if (StringIsEqual(value, *i)) {
+      protocol = (DeviceConfig::NetworkProtocolType)k;
+//      protocol = (DeviceConfig::NetworkProtocolType)std::distance(port_type_strings, i); DOESN'T WORK?!?
+      return true;
+    }
+  }
+
+  return false;
+
+}
+
+static bool
 ReadPortType(unsigned n, DeviceConfig::PortType &type)
 {
   TCHAR name[64];
@@ -198,6 +224,17 @@ ReadPortType(unsigned n, DeviceConfig::PortType &type)
 
   const TCHAR *value = Profile::Get(name);
   return value != NULL && StringToPortType(value, type);
+}
+
+static bool
+ReadNetworkProtocol(unsigned n, DeviceConfig::NetworkProtocolType &protocol){
+  TCHAR name[64];
+
+  MakeDeviceSettingName(name, _T("Port"), n, _T("NetworkProtocol"));
+
+  const TCHAR *value = Profile::Get(name);
+  return value != NULL && StringToNetworkProtocolType(value, protocol);
+
 }
 
 static bool
@@ -242,10 +279,13 @@ Profile::GetDeviceConfig(unsigned n, DeviceConfig &config)
   MakeDeviceSettingName(buffer, _T("Port"), n, _T("IOIOUartID"));
   Get(buffer, config.ioio_uart_id);
 
-  MakeDeviceSettingName(buffer, _T("Port"), n, _T("TCPPort"));
-  if (!Get(buffer, config.tcp_port))
-    config.tcp_port = 4353;
+  MakeDeviceSettingName(buffer, _T("Port"), n, _T("NetworkPort"));
+  if (!Get(buffer, config.network_port))
+    config.network_port = 4353;
 
+  if (!ReadNetworkProtocol(n, config.network_protocol))
+    config.network_protocol = DeviceConfig::NetworkProtocolType::NETWORK_TCP;
+  
   config.path.clear();
   if ((!have_port_type ||
        config.port_type == DeviceConfig::PortType::SERIAL) &&
@@ -300,6 +340,7 @@ Profile::GetDeviceConfig(unsigned n, DeviceConfig &config)
   MakeDeviceSettingName(buffer, _T("Port"), n, _T("IgnoreChecksum"));
   if (!Get(buffer, config.ignore_checksum))
     Get(szProfileIgnoreNMEAChecksum, config.ignore_checksum);
+  
 }
 
 static const TCHAR *
@@ -308,6 +349,13 @@ PortTypeToString(DeviceConfig::PortType type)
   const unsigned i = (unsigned)type;
   return i < ARRAY_SIZE(port_type_strings)
     ? port_type_strings[i]
+    : NULL;
+}
+static const TCHAR *
+NetworkProtocolTypeToString(DeviceConfig::NetworkProtocolType protocol){
+  const unsigned i = (unsigned)protocol;
+  return i < ARRAY_SIZE(network_protocol_strings)
+    ? network_protocol_strings[i]
     : NULL;
 }
 
@@ -321,6 +369,19 @@ WritePortType(unsigned n, DeviceConfig::PortType type)
   TCHAR name[64];
 
   MakeDeviceSettingName(name, _T("Port"), n, _T("Type"));
+  return Profile::Set(name, value);
+}
+
+static bool
+WriteNetworkProtocolType(unsigned n, DeviceConfig::NetworkProtocolType protocol){
+  const TCHAR *value = NetworkProtocolTypeToString(protocol);
+  printf("WriteNetworkProtocolType %s\n", value);
+  if (value == NULL)
+    return false;
+
+  TCHAR name[64];
+
+  MakeDeviceSettingName(name, _T("Port"), n, _T("NetworkProtocol"));
   return Profile::Set(name, value);
 }
 
@@ -346,8 +407,10 @@ Profile::SetDeviceConfig(unsigned n, const DeviceConfig &config)
   MakeDeviceSettingName(buffer, _T("Port"), n, _T("BulkBaudRate"));
   Set(buffer, config.bulk_baud_rate);
 
-  MakeDeviceSettingName(buffer, _T("Port"), n, _T("TCPPort"));
-  Set(buffer, config.tcp_port);
+  MakeDeviceSettingName(buffer, _T("Port"), n, _T("NetworkPort"));
+  Set(buffer, config.network_port);
+
+  WriteNetworkProtocolType(n, config.network_protocol);
 
   _tcscpy(buffer, _T("DeviceA"));
   buffer[_tcslen(buffer) - 1] += n;

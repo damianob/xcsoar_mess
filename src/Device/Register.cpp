@@ -41,6 +41,7 @@ Copyright_License {
 #include "Device/Driver/FlymasterF1.hpp"
 #include "Device/Driver/XCOM760.hpp"
 #include "Device/Driver/Condor.hpp"
+#include "Device/Driver/SilentWings.hpp"
 #include "Device/Driver/Leonardo.hpp"
 #include "Device/Driver/Flytec.hpp"
 #include "Device/Driver/ILEC.hpp"
@@ -78,6 +79,7 @@ static const struct DeviceRegister *const driver_list[] = {
   &westerboer_vw921_device_driver,
   &flynet_driver,
   &gt_altimeter_device_driver,
+  &silentWingsDevice,
   NULL
 };
 

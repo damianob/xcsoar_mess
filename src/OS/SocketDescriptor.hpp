@@ -61,6 +61,9 @@ public:
   bool CreateTCP();
   bool CreateTCPListener(unsigned port, unsigned backlog=8);
 
+  bool CreateUDP();
+  bool CreateUDPListener(unsigned port, unsigned backlog=8);
+
   SocketDescriptor Accept();
 
   bool Connect(const struct sockaddr *address, size_t length);

@@ -75,7 +75,7 @@ struct DeviceConfig {
     /**
      * Listen on a TCP port.
      */
-    TCP_LISTENER,
+    NETWORK,
 
     /**
      * A master pseudo-terminal.  The "path" attribute specifies the
@@ -84,6 +84,12 @@ struct DeviceConfig {
      */
     PTY,
   };
+
+  enum class NetworkProtocolType : uint8_t {
+      NETWORK_TCP,
+      NETWORK_UDP,
+  };
+
 
   /**
    * Type of the port
@@ -125,10 +131,15 @@ struct DeviceConfig {
   StaticString<32> driver_name;
 
   /**
-   * The TCP server port number.
+   * The network server port number.
    */
-  unsigned tcp_port;
+  unsigned network_port;
 
+  /**
+   * The network server protocol.
+   */
+  NetworkProtocolType network_protocol;
+  
   /**
    * Use the K6-Bt protocol?
    */
@@ -238,7 +249,7 @@ struct DeviceConfig {
   static bool UsesDriver(PortType port_type) {
     return port_type == PortType::SERIAL || port_type == PortType::RFCOMM ||
       port_type == PortType::RFCOMM_SERVER ||
-      port_type == PortType::AUTO || port_type == PortType::TCP_LISTENER ||
+      port_type == PortType::AUTO || port_type == PortType::NETWORK ||
       port_type == PortType::IOIOUART || port_type == PortType::PTY;
   }
 
@@ -249,12 +260,20 @@ struct DeviceConfig {
   /**
    * Does this port type use a tcp port?
    */
-  static bool UsesTCPPort(PortType port_type) {
-    return port_type == PortType::TCP_LISTENER;
+  static bool UsesNetworkPort(PortType port_type) {
+    return port_type == PortType::NETWORK;
   }
 
-  bool UsesTCPPort() const {
-    return UsesTCPPort(port_type);
+  static bool UsesNetworkProtocol(PortType port_type) {
+    return port_type == PortType::NETWORK;
+  }
+
+  bool UsesNetworkPort() const {
+    return UsesNetworkPort(port_type);
+  }
+
+  bool UsesNetworkProtocol() const {
+    return UsesNetworkProtocol(port_type);
   }
 
   bool IsDriver(const TCHAR *name) const {
@@ -285,7 +304,7 @@ struct DeviceConfig {
     port_type = PortType::DISABLED;
     baud_rate = 4800u;
     bulk_baud_rate = 0u;
-    tcp_port = 4353u;
+    network_port = 4353u;
     path.clear();
     bluetooth_mac.clear();
     driver_name.clear();

@@ -24,6 +24,7 @@ Copyright_License {
 #include "ConfiguredPort.hpp"
 #include "NullPort.hpp"
 #include "TCPPort.hpp"
+#include "UDPPort.hpp"
 #include "K6BtPort.hpp"
 #include "Profile/DeviceConfig.hpp"
 #include "LogFile.hpp"
@@ -157,14 +158,25 @@ OpenPortInternal(const DeviceConfig &config, Port::Handler &handler)
   case DeviceConfig::PortType::INTERNAL:
     break;
 
-  case DeviceConfig::PortType::TCP_LISTENER: {
-    TCPPort *port = new TCPPort(handler);
-    if (!port->Open(config.tcp_port)) {
-      delete port;
-      return NULL;
+  case DeviceConfig::PortType::NETWORK: {
+    TCPPort *tcp_port;
+    UDPPort *udp_port;
+    switch(config.network_protocol){
+      case DeviceConfig::NetworkProtocolType::NETWORK_TCP:
+        tcp_port = new TCPPort(handler);
+        if (!tcp_port->Open(config.network_port)) {
+          delete tcp_port;
+          return NULL;
+        }
+        return tcp_port;
+      case DeviceConfig::NetworkProtocolType::NETWORK_UDP:
+        udp_port = new UDPPort(handler);
+        if (!udp_port->Open(config.network_port)) {
+          delete udp_port;
+          return NULL;
+        }
+        return udp_port;
     }
-
-    return port;
   }
 
   case DeviceConfig::PortType::PTY: {

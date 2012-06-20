@@ -68,7 +68,7 @@ DeviceConfigOverlaps(const DeviceConfig &a, const DeviceConfig &b)
   case DeviceConfig::PortType::DISABLED:
   case DeviceConfig::PortType::AUTO:
   case DeviceConfig::PortType::INTERNAL:
-  case DeviceConfig::PortType::TCP_LISTENER:
+  case DeviceConfig::PortType::NETWORK:
   case DeviceConfig::PortType::RFCOMM_SERVER:
     break;
   }

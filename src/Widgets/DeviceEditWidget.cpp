@@ -45,7 +45,7 @@
 #endif
 
 enum ControlIndex {
-  Port, BaudRate, BulkBaudRate, TCPPort, Driver,
+  Port, BaudRate, BulkBaudRate, NetworkProtocol, NetworkPort, Driver,
   SyncFromDevice, SyncToDevice,
   K6Bt,
 #ifndef NDEBUG
@@ -69,7 +69,7 @@ static gcc_constexpr_data struct {
 
   /* label not translated for now, until we have a TCP port
      selection UI */
-  { DeviceConfig::PortType::TCP_LISTENER, N_("TCP Port") },
+  { DeviceConfig::PortType::NETWORK, N_("Network") },
 
   { DeviceConfig::PortType::SERIAL, NULL } /* sentinel */
 };
@@ -306,10 +306,20 @@ FillBaudRates(DataFieldEnum &dfe)
 }
 
 static void
-FillTCPPorts(DataFieldEnum &dfe)
+FillNetworkPorts(DataFieldEnum &dfe)
 {
   dfe.addEnumText(_T("4353"), 4353);
   dfe.addEnumText(_T("10110"), 10110);
+}
+
+static void
+FillNetworkProtocol(DataFieldEnum &dfe, const DeviceConfig &config)
+{
+  dfe.addEnumText(_T("TCP"),
+          (unsigned)DeviceConfig::NetworkProtocolType::NETWORK_TCP);
+  dfe.addEnumText(_T("UDP"),
+          (unsigned)DeviceConfig::NetworkProtocolType::NETWORK_UDP);
+  dfe.Set((unsigned)config.network_protocol);
 }
 
 static void
@@ -319,7 +329,7 @@ SetPort(DataFieldEnum &df, const DeviceConfig &config)
   case DeviceConfig::PortType::DISABLED:
   case DeviceConfig::PortType::AUTO:
   case DeviceConfig::PortType::INTERNAL:
-  case DeviceConfig::PortType::TCP_LISTENER:
+  case DeviceConfig::PortType::NETWORK:
   case DeviceConfig::PortType::PTY:
   case DeviceConfig::PortType::RFCOMM_SERVER:
     break;
@@ -373,11 +383,11 @@ DeviceEditWidget::SetConfig(const DeviceConfig &_config)
   bulk_baud_df.Set(config.bulk_baud_rate);
   bulk_baud_control.RefreshDisplay();
 
-  WndProperty &tcp_port_control = GetControl(TCPPort);
-  DataFieldEnum &tcp_port_df = *(DataFieldEnum *)
-    tcp_port_control.GetDataField();
-  tcp_port_df.Set(config.tcp_port);
-  tcp_port_control.RefreshDisplay();
+  WndProperty &network_port_control = GetControl(NetworkPort);
+  DataFieldEnum &network_port_df = *(DataFieldEnum *)
+    network_port_control.GetDataField();
+  network_port_df.Set(config.network_port);
+  network_port_control.RefreshDisplay();
 
   WndProperty &driver_control = GetControl(Driver);
   DataFieldEnum &driver_df = *(DataFieldEnum *)driver_control.GetDataField();
@@ -493,7 +503,8 @@ DeviceEditWidget::UpdateVisibilities()
   SetRowVisible(BulkBaudRate, uses_speed &&
                 DeviceConfig::UsesDriver(type) &&
                 SupportsBulkBaudRate(GetDataField(Driver)));
-  SetRowAvailable(TCPPort, DeviceConfig::UsesTCPPort(type));
+  SetRowAvailable(NetworkPort, DeviceConfig::UsesNetworkPort(type));
+  SetRowAvailable(NetworkProtocol, DeviceConfig::UsesNetworkProtocol(type));
   SetRowVisible(Driver, DeviceConfig::UsesDriver(type));
   SetRowVisible(SyncFromDevice, DeviceConfig::UsesDriver(type) &&
                 CanReceiveSettings(GetDataField(Driver)));
@@ -533,11 +544,17 @@ DeviceEditWidget::Prepare(ContainerWindow &parent, const PixelRect &rc)
       _("The baud rate used for bulk transfers, such as task declaration or flight download."),
       bulk_baud_rate_df);
 
-  DataFieldEnum *tcp_port_df = new DataFieldEnum(NULL);
-  tcp_port_df->SetListener(this);
-  FillTCPPorts(*tcp_port_df);
-  tcp_port_df->Set(config.tcp_port);
-  Add(_("TCP Port"), NULL, tcp_port_df);
+  DataFieldEnum *network_protocol_df = new DataFieldEnum(NULL);
+  network_protocol_df->SetListener(this);
+  FillNetworkProtocol(*network_protocol_df, config);
+//  network_protocol_df->Set((unsigned)config.network_protocol);
+  Add(_("Network protocol"), NULL, network_protocol_df);
+
+  DataFieldEnum *network_port_df = new DataFieldEnum(NULL);
+  network_port_df->SetListener(this);
+  FillNetworkPorts(*network_port_df);
+  network_port_df->Set(config.network_port);
+  Add(_("Network port"), NULL, network_port_df);
 
   DataFieldEnum *driver_df = new DataFieldEnum(NULL);
   driver_df->SetListener(this);
@@ -604,7 +621,7 @@ FinishPortField(DeviceConfig &config, const DataFieldEnum &df)
   case DeviceConfig::PortType::DISABLED:
   case DeviceConfig::PortType::AUTO:
   case DeviceConfig::PortType::INTERNAL:
-  case DeviceConfig::PortType::TCP_LISTENER:
+  case DeviceConfig::PortType::NETWORK:
   case DeviceConfig::PortType::RFCOMM_SERVER:
     if (new_type == config.port_type)
       return false;
@@ -649,6 +666,25 @@ FinishPortField(DeviceConfig &config, const DataFieldEnum &df)
   return false;
 }
 
+static bool
+FinishNetworkProtocol(DeviceConfig &config, const DataFieldEnum &df){
+  unsigned value = df.GetAsInteger();
+
+  const DeviceConfig::NetworkProtocolType new_protocol =
+    (DeviceConfig::NetworkProtocolType)(value);
+  switch (new_protocol) {
+    case DeviceConfig::NetworkProtocolType::NETWORK_UDP:
+    case DeviceConfig::NetworkProtocolType::NETWORK_TCP:
+      if (new_protocol == config.network_protocol)
+        return false;
+      config.network_protocol = new_protocol;
+      return true;
+  }
+  /* unreachable */
+  assert(false);
+  return false;
+}
+
 bool
 DeviceEditWidget::Save(bool &_changed, bool &require_restart)
 {
@@ -664,8 +700,12 @@ DeviceEditWidget::Save(bool &_changed, bool &require_restart)
     changed |= SaveValue(BulkBaudRate, config.bulk_baud_rate);
   }
 
-  if (config.UsesTCPPort())
-    changed |= SaveValue(TCPPort, config.tcp_port);
+  if (config.UsesNetworkProtocol())
+    changed |= FinishNetworkProtocol(config,
+            (const DataFieldEnum &)GetDataField(NetworkProtocol));
+
+  if (config.UsesNetworkPort())
+    changed |= SaveValue(NetworkPort, config.network_port);
 
 
   if (config.UsesDriver()) {
