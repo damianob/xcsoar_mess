@@ -72,7 +72,7 @@ DeviceConfig::IsAvailable() const
   case PortType::INTERNAL:
     return IsAndroid();
 
-  case PortType::NETWORK:
+  case PortType::NETWORK_LISTENER:
     return true;
 
   case PortType::PTY:
@@ -111,7 +111,7 @@ DeviceConfig::ShouldReopenOnTimeout() const
     /* reopening the Android internal GPS doesn't help */
     return false;
 
-  case PortType::NETWORK:
+  case PortType::NETWORK_LISTENER:
     /* this is a server, and if no data gets received, this can just
        mean that nobody connected to it, but reopening it periodically
        doesn't help */
@@ -155,7 +155,7 @@ DeviceConfig::GetPortName(TCHAR *buffer, size_t max_size) const
   case PortType::INTERNAL:
     return _("Built-in GPS");
 
-  case PortType::NETWORK:
+  case PortType::NETWORK_LISTENER:
     switch(network_protocol){
       case NetworkProtocolType::NETWORK_TCP : _sntprintf(buffer, max_size, _T("TCP port %d"), network_port);
         return buffer;
@@ -280,8 +280,16 @@ Profile::GetDeviceConfig(unsigned n, DeviceConfig &config)
   Get(buffer, config.ioio_uart_id);
 
   MakeDeviceSettingName(buffer, _T("Port"), n, _T("NetworkPort"));
-  if (!Get(buffer, config.network_port))
-    config.network_port = 4353;
+
+  /**
+   * Keeping the old name "TCPPort" as fallback in order to not break
+   * old configuration files.
+   */
+  if (!Get(buffer, config.network_port)){
+    MakeDeviceSettingName(buffer, _T("Port"), n, _T("TCPPort"));
+    if (!Get(buffer, config.network_port))
+      config.network_port = 4353;
+  }
 
   if (!ReadNetworkProtocol(n, config.network_protocol))
     config.network_protocol = DeviceConfig::NetworkProtocolType::NETWORK_TCP;

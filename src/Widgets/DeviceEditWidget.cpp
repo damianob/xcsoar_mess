@@ -69,7 +69,7 @@ static gcc_constexpr_data struct {
 
   /* label not translated for now, until we have a TCP port
      selection UI */
-  { DeviceConfig::PortType::NETWORK, N_("Network") },
+  { DeviceConfig::PortType::NETWORK_LISTENER, N_("Network") },
 
   { DeviceConfig::PortType::SERIAL, NULL } /* sentinel */
 };
@@ -329,7 +329,7 @@ SetPort(DataFieldEnum &df, const DeviceConfig &config)
   case DeviceConfig::PortType::DISABLED:
   case DeviceConfig::PortType::AUTO:
   case DeviceConfig::PortType::INTERNAL:
-  case DeviceConfig::PortType::NETWORK:
+  case DeviceConfig::PortType::NETWORK_LISTENER:
   case DeviceConfig::PortType::PTY:
   case DeviceConfig::PortType::RFCOMM_SERVER:
     break;
@@ -621,7 +621,7 @@ FinishPortField(DeviceConfig &config, const DataFieldEnum &df)
   case DeviceConfig::PortType::DISABLED:
   case DeviceConfig::PortType::AUTO:
   case DeviceConfig::PortType::INTERNAL:
-  case DeviceConfig::PortType::NETWORK:
+  case DeviceConfig::PortType::NETWORK_LISTENER:
   case DeviceConfig::PortType::RFCOMM_SERVER:
     if (new_type == config.port_type)
       return false;

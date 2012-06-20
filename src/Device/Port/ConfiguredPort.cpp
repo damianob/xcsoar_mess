@@ -158,24 +158,24 @@ OpenPortInternal(const DeviceConfig &config, Port::Handler &handler)
   case DeviceConfig::PortType::INTERNAL:
     break;
 
-  case DeviceConfig::PortType::NETWORK: {
+  case DeviceConfig::PortType::NETWORK_LISTENER: {
     TCPPort *tcp_port;
     UDPPort *udp_port;
     switch(config.network_protocol){
-      case DeviceConfig::NetworkProtocolType::NETWORK_TCP:
-        tcp_port = new TCPPort(handler);
-        if (!tcp_port->Open(config.network_port)) {
-          delete tcp_port;
-          return NULL;
-        }
-        return tcp_port;
-      case DeviceConfig::NetworkProtocolType::NETWORK_UDP:
-        udp_port = new UDPPort(handler);
-        if (!udp_port->Open(config.network_port)) {
-          delete udp_port;
-          return NULL;
-        }
-        return udp_port;
+    case DeviceConfig::NetworkProtocolType::NETWORK_TCP:
+      tcp_port = new TCPPort(handler);
+      if (!tcp_port->Open(config.network_port)) {
+        delete tcp_port;
+        return NULL;
+      }
+      return tcp_port;
+    case DeviceConfig::NetworkProtocolType::NETWORK_UDP:
+      udp_port = new UDPPort(handler);
+      if (!udp_port->Open(config.network_port)) {
+        delete udp_port;
+        return NULL;
+      }
+      return udp_port;
     }
   }
 

@@ -75,7 +75,7 @@ struct DeviceConfig {
     /**
      * Listen on a TCP port.
      */
-    NETWORK,
+    NETWORK_LISTENER,
 
     /**
      * A master pseudo-terminal.  The "path" attribute specifies the
@@ -249,7 +249,7 @@ struct DeviceConfig {
   static bool UsesDriver(PortType port_type) {
     return port_type == PortType::SERIAL || port_type == PortType::RFCOMM ||
       port_type == PortType::RFCOMM_SERVER ||
-      port_type == PortType::AUTO || port_type == PortType::NETWORK ||
+      port_type == PortType::AUTO || port_type == PortType::NETWORK_LISTENER ||
       port_type == PortType::IOIOUART || port_type == PortType::PTY;
   }
 
@@ -261,11 +261,11 @@ struct DeviceConfig {
    * Does this port type use a tcp port?
    */
   static bool UsesNetworkPort(PortType port_type) {
-    return port_type == PortType::NETWORK;
+    return port_type == PortType::NETWORK_LISTENER;
   }
 
   static bool UsesNetworkProtocol(PortType port_type) {
-    return port_type == PortType::NETWORK;
+    return port_type == PortType::NETWORK_LISTENER;
   }
 
   bool UsesNetworkPort() const {

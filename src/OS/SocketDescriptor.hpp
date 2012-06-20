@@ -40,6 +40,8 @@ struct sockaddr;
  */
 class SocketDescriptor : public FileDescriptor {
   SocketDescriptor(int _fd):FileDescriptor(_fd) {}
+  bool Create(int domain, int type, int protocol);
+  bool BindPort(unsigned port);
 
 public:
   SocketDescriptor() {}

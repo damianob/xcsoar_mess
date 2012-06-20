@@ -52,11 +52,11 @@ SocketDescriptor::Close()
 #endif
 
 bool
-SocketDescriptor::CreateTCP()
+SocketDescriptor::Create(int domain, int type, int protocol)
 {
   assert(!IsDefined());
 
-  int fd = socket(AF_INET, SOCK_STREAM, 0);
+  int fd = socket(domain, type, protocol);
   if (fd < 0)
     return false;
 
@@ -65,16 +65,28 @@ SocketDescriptor::CreateTCP()
 }
 
 bool
+SocketDescriptor::BindPort(unsigned port)
+{
+  // Bind socket to specified port number
+  struct sockaddr_in address;
+  memset(&address, 0, sizeof(address));
+  address.sin_family = AF_INET;
+  address.sin_addr.s_addr = INADDR_ANY;
+  address.sin_port = htons((uint16_t)port);
+
+  return bind(Get(), (const struct sockaddr *)&address, sizeof(address)) == 0;
+}
+
+bool
+SocketDescriptor::CreateTCP()
+{
+  return Create(AF_INET, SOCK_STREAM, 0);
+}
+
+bool
 SocketDescriptor::CreateUDP()
 {
-  assert(!IsDefined());
-
-  int fd = socket(AF_INET, SOCK_DGRAM, 0);
-  if (fd < 0)
-    return false;
-
-  Set(fd);
-  return true;
+  return Create(AF_INET, SOCK_DGRAM, 0);
 }
 
 bool
@@ -93,17 +105,10 @@ SocketDescriptor::CreateUDPListener(unsigned port, unsigned backlog)
   setsockopt(Get(), SOL_SOCKET, SO_REUSEADDR, optval, sizeof(reuse));
 
   // Bind socket to specified port number
-  struct sockaddr_in address;
-  memset(&address, 0, sizeof(address));
-  address.sin_family = AF_INET;
-  address.sin_addr.s_addr = INADDR_ANY;
-  address.sin_port = htons((uint16_t)port);
-
-  if (bind(Get(), (const struct sockaddr *)&address, sizeof(address)) < 0) {
+  if(!BindPort(port)){
     Close();
     return false;
   }
-
   return true;
 }
 
@@ -122,16 +127,9 @@ SocketDescriptor::CreateTCPListener(unsigned port, unsigned backlog)
 #endif
   setsockopt(Get(), SOL_SOCKET, SO_REUSEADDR, optval, sizeof(reuse));
 
-  // Bind socket to specified port number
-  struct sockaddr_in address;
-  memset(&address, 0, sizeof(address));
-  address.sin_family = AF_INET;
-  address.sin_addr.s_addr = INADDR_ANY;
-  address.sin_port = htons((uint16_t)port);
-
-  if (bind(Get(), (const struct sockaddr *)&address, sizeof(address)) < 0) {
+  if (! BindPort(port)){
     Close();
-    return false;
+    return false;        
   }
 
   if (listen(Get(), backlog) < 0) {
